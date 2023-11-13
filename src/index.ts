@@ -8,6 +8,7 @@ import { readPhotoTakenTimeFromGoogleJson } from './helpers/read-photo-taken-tim
 import { updateExifMetadata } from './helpers/update-exif-metadata';
 import { updateFileModificationDate } from './helpers/update-file-modification-date';
 import { Directories } from './models/directories'
+import { resolve } from 'path';
 
 const { readdir, mkdir, copyFile } = fspromises;
 
@@ -116,24 +117,32 @@ class GooglePhotosExif extends Command {
 
     for (let i = 0, mediaFile; mediaFile = mediaFiles[i]; i++) {
 
-      // Copy the file into output directory
-      this.log(`Copying file ${i} of ${mediaFiles.length}: ${mediaFile.mediaFilePath} -> ${mediaFile.outputFileName}`);
-      await copyFile(mediaFile.mediaFilePath, mediaFile.outputFilePath);
-
       // Process the output file, setting the modified timestamp and/or EXIF metadata where necessary
       const photoTimeTaken = await readPhotoTakenTimeFromGoogleJson(mediaFile);
 
       if (photoTimeTaken) {
+        // Copy the file into output directory
+        // this.log(`Copying file ${i} of ${mediaFiles.length}: ${mediaFile.mediaFilePath} -> ${mediaFile.outputFileName}`);
+        await copyFile(mediaFile.mediaFilePath, mediaFile.outputFilePath);
+
         if (mediaFile.supportsExif) {
           const hasExifDate = await doesFileHaveExifDate(mediaFile.mediaFilePath);
           if (!hasExifDate) {
             await updateExifMetadata(mediaFile, photoTimeTaken, directories.error);
             fileNamesWithEditedExif.push(mediaFile.outputFileName);
-            this.log(`Wrote "DateTimeOriginal" EXIF metadata to: ${mediaFile.outputFileName}`);
+            this.log(`Wrote "DateTimeOriginal" EXIF metadata to: ${mediaFile.outputFileName}: ${photoTimeTaken}`);
           }
         }
 
         await updateFileModificationDate(mediaFile.outputFilePath, photoTimeTaken);
+      } else {
+        this.log(`${mediaFile.outputFileName} does not have "photoTimeTaken"`);
+        // Copy the file into output directory
+        // this.log(`Copying file ${i} of ${mediaFiles.length}: ${mediaFile.mediaFilePath} -> ${mediaFile.outputFileName}`);
+        await copyFile(mediaFile.mediaFilePath, resolve(directories.error, mediaFile.mediaFileName));
+        if (mediaFile.jsonFileExists && mediaFile.jsonFileName && mediaFile.jsonFilePath) {
+          await copyFile(mediaFile.jsonFilePath, resolve(directories.error, mediaFile.jsonFileName));
+        }
       }
     }
 
@@ -145,7 +154,7 @@ class GooglePhotosExif extends Command {
     this.log(`--- The file modified timestamp has been updated on all media files ---`)
     if (fileNamesWithEditedExif.length > 0) {
       this.log(`--- Found ${fileNamesWithEditedExif.length} files which support EXIF, but had no DateTimeOriginal field. For each of the following files, the DateTimeOriginalField has been updated using the date found in the JSON metadata: ---`);
-      fileNamesWithEditedExif.forEach(fileNameWithEditedExif => this.log(fileNameWithEditedExif));
+      // fileNamesWithEditedExif.forEach(fileNameWithEditedExif => this.log(fileNameWithEditedExif));
     } else {
       this.log(`--- We did not edit EXIF metadata for any of the files. This could be because all files already had a value set for the DateTimeOriginal field, or because we did not have a corresponding JSON file. ---`);
     }

@@ -10,6 +10,7 @@ export function getCompanionJsonPathForMediaFile(mediaFilePath: string): string|
   // These images don't have their own .json sidecars - for these we'd want to use the JSON sidecar for the original image
   // so we can ignore the "-edited" suffix if there is one
   mediaFileNameWithoutExtension = mediaFileNameWithoutExtension.replace(/[-]edited$/i, '');
+  mediaFileNameWithoutExtension = mediaFileNameWithoutExtension.replace(/[-]다음을 수정함[_]$/i, '');
 
   // The naming pattern for the JSON sidecar files provided by Google Takeout seem to be inconsistent. For `foo.jpg`,
   // the JSON file is sometimes `foo.json` but sometimes it's `foo.jpg.json`. Here we start building up a list of potential
@@ -18,6 +19,10 @@ export function getCompanionJsonPathForMediaFile(mediaFilePath: string): string|
     `${mediaFileNameWithoutExtension}.json`,
     `${mediaFileNameWithoutExtension}${mediaFileExtension}.json`,
   ];
+  if (mediaFileExtension.toLowerCase() === '.mp4') {
+    potentialJsonFileNames.push(`${mediaFileNameWithoutExtension}.HEIC.json`);
+    potentialJsonFileNames.push(`${mediaFileNameWithoutExtension}.JPG.json`);
+  }
 
   // Another edge case which seems to be quite inconsistent occurs when we have media files containing a number suffix for example "foo(1).jpg"
   // In this case, we don't get "foo(1).json" nor "foo(1).jpg.json". Instead, we strangely get "foo.jpg(1).json".
